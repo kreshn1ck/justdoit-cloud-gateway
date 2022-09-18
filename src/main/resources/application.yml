@@ -1,0 +1,72 @@
+server:
+  port: 9191
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: API-GATEWAY
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:4200"
+            allowedHeaders: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - DELETE
+              - PUT
+      routes:
+        - id: BACKEND-SERVICE
+          uri: lb://BACKEND-SERVICE
+          predicates:
+            - Path=/backend/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: BACKEND-SERVICE
+                fallbackuri: forward:/backendServiceFallBack
+        - id: EMAILS-SERVICE
+          uri: lb://EMAILS-SERVICE
+          predicates:
+            - Path=/emails/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: EMAILS-SERVICE
+                fallbackuri: forward:/emailsServiceFallBack
+        - id: AUTH-SERVICE
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: AUTH-SERVICE
+                fallbackuri: forward:/authServiceFallBack
+hystrix:
+  command:
+    fallbackcmd:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 4000
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: hystrix.stream
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    hostname: localhost
